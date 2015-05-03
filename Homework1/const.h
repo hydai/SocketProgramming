@@ -1,0 +1,9 @@
+const int MAXLINE = 4096;
+const int LISTENQ = 1024;
+const int POCKET_SIZE = 2048;
+const int PORT = 9878;
+const char LS[] = "ls";
+const char CD[] = "cd";
+const char UPLOAD[] = "put";
+const char DOWNLOAD[] = "get";
+const char ACK[] = "done";
