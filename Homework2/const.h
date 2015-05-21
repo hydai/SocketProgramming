@@ -3,7 +3,8 @@
 const int MAXLINE = 4096;
 const int LISTENQ = 1024;
 const int POCKET_SIZE = 2048;
-const int PORT = 9878;
+const int WAIT_TIME_OUT_US = 10000;
+const int SLEEP_TIME_US = 1000;
 const int OP_User_Registe   = 1;
 const int OP_User_Delete    = OP_User_Registe + 1;
 const int OP_User_Login     = OP_User_Delete + 1;
@@ -19,4 +20,5 @@ const int OP_Text_Delete    = OP_Text_Download + 1;
 const int OP_Char_Show      = OP_Text_Delete + 1;
 const int OP_Char_Boardcase = OP_Char_Show + 1;
 const int OP_Char_To_User   = OP_Char_Boardcase + 1;
+const char ACK[] = "ACK";
 #endif

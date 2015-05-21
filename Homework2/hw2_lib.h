@@ -30,8 +30,9 @@ struct IP_INFO {
     int port;
 };
 
-// Execute external command
+// Execute command
 bool exec(std::string command);
+std::string run_command(std::string command);
 
 // Socket
 IP_INFO get_ip_info(struct sockaddr_in addr);

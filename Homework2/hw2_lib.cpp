@@ -6,7 +6,7 @@ int create_udp_server(struct sockaddr_in addr, int port) {
     bzero(&addr, sizeof(addr));
     addr.sin_family=AF_INET;
     addr.sin_addr.s_addr=htonl(INADDR_ANY);
-    addr.sin_port=htons(PORT);
+    addr.sin_port=htons(port);
     bind(sockfd, (struct sockaddr *)&addr, sizeof(addr));
     return sockfd;
 }
@@ -17,8 +17,8 @@ void server_echo(int sockfd) {
     struct sockaddr_in addr;
     socklen_t len = sizeof(addr);
     struct timeval tv;
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
+    tv.tv_sec = 0;
+    tv.tv_usec = WAIT_TIME_OUT_US;
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
         logging("setsocketopt failed");
     }
@@ -28,8 +28,27 @@ void server_echo(int sockfd) {
             // Skip garbage data
             continue;
         }
-        sendto(sockfd, msg, n, 0, (struct sockaddr *)&addr, len);
+        msg[n] = '\0';
+        logging("From ip: "
+                + get_ip_info(addr).ip
+                + ":"
+                + std::to_string(get_ip_info(addr).port)
+                + " - \n"
+                + std::string(msg));
+        // Reply ack
+        std::string reply_string = ACK;
+        sendto(sockfd, reply_string.c_str(), reply_string.length(), 0, (struct sockaddr *)&addr, len);
+        // Two packets in very short time, sometime it will be broken...
+        usleep(SLEEP_TIME_US);
+        reply_string = run_command(msg);
+        sendto(sockfd, reply_string.c_str(), reply_string.length(), 0, (struct sockaddr *)&addr, len);
     }
+}
+
+std::string run_command(std::string command) {
+    std::string ret = "";
+    
+    return ret;
 }
 
 IP_INFO get_ip_info(struct sockaddr_in addr) {
