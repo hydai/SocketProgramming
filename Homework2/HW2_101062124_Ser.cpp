@@ -2,16 +2,16 @@
 #include "hw2_lib.h"
 
 int main(int argc, char **argv) {
-    sqlite3 *db;
-    struct sockaddr_in seraddr, cliaddr;
 
     if (argc < 2) {
-        logging("Usage: ./HW2_101062124_Ser [port]");
+        logging("Usage: " + std::string(argv[0]) + " <port>");
         return 1;
     }
-    int sockfd = create_udp_server(seraddr, std::atoi(argv[1]));
+    struct sockaddr_in addr;
+    int sockfd = create_udp_server(addr, std::atoi(argv[1]));
     mkdir("Upload", 0777);
     
+    sqlite3 *db;
     bool db_status = init_db(db);
     if (!db_status) {
         logging("Fatal error in init_db");
