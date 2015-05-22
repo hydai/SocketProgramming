@@ -1,15 +1,5 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/stat.h>
 #include "const.h"
 #include "hw2_lib.h"
-
 
 void str_cli(FILE *fp, int sockfd);
 void getFileName(char dst[], char src[]);
@@ -18,27 +8,12 @@ void show_prompt();
 int main (int argc, char **argv) {
     int sockfd;
     struct sockaddr_in servaddr;
-    if (argc != 2) {
+    if (argc < 3) {
         printf("usage: %s <IPaddress>\n", argv[0]);
         goto END;
     }
     mkdir("Download", 0777);
-    if ((sockfd=socket(AF_INET, SOCK_STREAM,0)) < 0) {
-        printf("socket error\n");
-        goto END;
-    }
 
-    bzero(&servaddr,sizeof(servaddr));
-    servaddr.sin_family=AF_INET;
-    servaddr.sin_port=htons(PORT);
-    if (inet_pton(AF_INET, argv[1], &servaddr.sin_addr) <= 0) {
-        printf("inet_ption error for %s\n", argv[1]);
-        goto END;
-    }
-    if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0) {
-        printf("connect error\n");
-        goto END;
-    }
     str_cli(stdin, sockfd);
 END:
     exit(0);
