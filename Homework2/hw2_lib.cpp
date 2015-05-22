@@ -1,12 +1,21 @@
 #include "hw2_lib.h"
 #include "const.h"
 
+int create_udp_client(struct sockaddr_in addr, std::string ip, int port) {
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    bzero(&addr, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    inet_pton(AF_INET, ip.c_str(), &addr.sin_addr);
+    return sockfd;
+}
+
 int create_udp_server(struct sockaddr_in addr, int port) {
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     bzero(&addr, sizeof(addr));
-    addr.sin_family=AF_INET;
-    addr.sin_addr.s_addr=htonl(INADDR_ANY);
-    addr.sin_port=htons(port);
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons(port);
     bind(sockfd, (struct sockaddr *)&addr, sizeof(addr));
     return sockfd;
 }
@@ -40,12 +49,12 @@ void server_echo(int sockfd) {
         sendto(sockfd, reply_string.c_str(), reply_string.length(), 0, (struct sockaddr *)&addr, len);
         // Two packets in very short time, sometime it will be broken...
         usleep(SLEEP_TIME_US);
-        reply_string = run_command(msg);
+        reply_string = run_command(msg, SERVER_MODE);
         sendto(sockfd, reply_string.c_str(), reply_string.length(), 0, (struct sockaddr *)&addr, len);
     }
 }
 
-std::string run_command(std::string command) {
+std::string run_command(std::string command, int mode) {
     std::string ret = "";
     
     return ret;

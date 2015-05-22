@@ -32,11 +32,12 @@ struct IP_INFO {
 
 // Execute command
 bool exec(std::string command);
-std::string run_command(std::string command);
+std::string run_command(std::string command, int mode);
 
 // Socket
 IP_INFO get_ip_info(struct sockaddr_in addr);
 int create_udp_server(struct sockaddr_in addr, int port);
+int create_udp_client(struct sockaddr_in addr, std::string ip, int port);
 void server_echo(int sockfd);
 
 // Message
@@ -60,24 +61,4 @@ T max(T a, T b) {
     return (a>b)?a:b;
 }
 
-// Constents
-const int INIT_SQL_SIZE = 5;
-const int MAX_SQL_LENGTH = 500;
-const char init_sql[INIT_SQL_SIZE][MAX_SQL_LENGTH] = {
-    "CREATE TABLE user (" \
-    "account varchar(64) PRIMARY KEY NOT NULL, " \
-    "password varchar(64));",
-
-    "CREATE TABLE text (" \
-    "tid integer PRIMARY KEY NOT NULL, " \
-    "title varchar(64), " \
-    "content varchar(300), " \
-    "time timestamp DEFAULT CURRENT_TIMESTAMP, " \
-    "account varchar(64), " \
-    "ip varchar(64), " \
-    "port integer, " \
-    "hit integer DEFAULT 0)",
-
-    ""
-};
 #endif
