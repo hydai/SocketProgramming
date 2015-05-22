@@ -55,8 +55,6 @@ const char init_sql[INIT_SQL_SIZE][MAX_SQL_LENGTH] = {
     "CREATE TABLE fileintext (" \
     "tid integer NOT NULL, " \
     "account varchar(64), " \
-    "filename varchar(64))",
-
-    ""
+    "filename varchar(64))"
 };
 #endif
