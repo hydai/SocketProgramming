@@ -1,14 +1,10 @@
 #include "const.h"
 #include "hw2_lib.h"
 
-void str_cli(FILE *fp, int sockfd);
-void getFileName(char dst[], char src[]);
-void show_prompt();
-
 int main (int argc, char **argv) {
     if (argc < 3) {
-        printf("usage: %s <IPaddress> <Port>\n", argv[0]);
-        goto END;
+        logging("usage: " + std::string(argv[0]) + " <IPaddress> <Port>");
+        return 1;
     }
     struct sockaddr_in addr;
     int sockfd = create_udp_client(addr, argv[1], std::atoi(argv[2]));
