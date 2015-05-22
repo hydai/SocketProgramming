@@ -10,7 +10,7 @@ int main(int argc, char **argv) {
         return 1;
     }
     int sockfd = create_udp_server(seraddr, std::atoi(argv[1]));
-    exec("mkdir Upload");
+    mkdir("Upload", 0777);
     
     bool db_status = init_db(db);
     if (!db_status) {
