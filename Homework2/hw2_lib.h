@@ -39,6 +39,8 @@ IP_INFO get_ip_info(struct sockaddr_in addr);
 int create_udp_server(struct sockaddr_in addr, int port);
 int create_udp_client(struct sockaddr_in addr, std::string ip, int port);
 void server_echo(int sockfd);
+int client_echo(int sockfd);
+void send_data_to(int sockfd, struct sockaddr_in &addr, int mode, std::string data);
 
 // Message
 void show_welcome_message();
