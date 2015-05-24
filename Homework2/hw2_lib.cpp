@@ -12,11 +12,13 @@ int create_udp_server(struct sockaddr_in addr, int port) {
     return sockfd;
 }
 
-void server_echo(int sockfd) {
+void server_echo(int sockfd, sqlite3* &db) {
     // Set socket timeout: http://stackoverflow.com/questions/13547721/udp-socket-set-timeout
     char msg[MAXLINE+1];
     struct sockaddr_in addr;
     socklen_t len = sizeof(addr);
+    std::map<std::string, struct sockaddr_in> online_user;
+    online_user.clear();
     struct timeval tv;
     tv.tv_sec = 0;
     tv.tv_usec = WAIT_TIME_OUT_US;
@@ -41,23 +43,24 @@ void server_echo(int sockfd) {
         sendto(sockfd, reply_string.c_str(), reply_string.length(), 0, (struct sockaddr *)&addr, len);
         // Two packets in very short time, sometime it will be broken...
         usleep(SLEEP_TIME_US);
-        reply_string = run_command(msg, SERVER_MODE);
+        reply_string = run_command_server(addr, db, msg, online_user);
         sendto(sockfd, reply_string.c_str(), reply_string.length(), 0, (struct sockaddr *)&addr, len);
     }
 }
 
 // Client side
-int create_udp_client(struct sockaddr_in addr, std::string ip, int port) {
+int create_udp_client(struct sockaddr_in *addr, std::string ip, int port) {
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    bzero(&addr, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    inet_pton(AF_INET, ip.c_str(), &addr.sin_addr);
+    bzero(addr, sizeof(*addr));
+    addr->sin_family = AF_INET;
+    addr->sin_port = htons(port);
+    inet_pton(AF_INET, ip.c_str(), &(addr->sin_addr));
     return sockfd;
 }
 
-int client_echo(int sockfd) {
+int client_echo(int sockfd, struct sockaddr_in addr) {
     int istreamfd = fileno(stdin);
+    char username[128] = "";
     fd_set allset;
     FD_ZERO(&allset);
     show_welcome_message();
@@ -78,13 +81,20 @@ int client_echo(int sockfd) {
                 return 1;
             } else {
                 recv_string[n] = '\0';
-                run_command(recv_string, CLIENT_MODE);
+                logging("Server reply: " + std::string(recv_string));
+                std::string command = run_command_client(recv_string, username);
+                if (command != "") {
+                    send_data_to(sockfd, addr, CLIENT_MODE, command);
+                }
             }
         }
         if (FD_ISSET(istreamfd, &allset)) {
             std::string input = read_line();
             logging("Client input: " + input);
-            run_command(input, CLIENT_MODE);
+            std::string command = run_command_client(input, username);
+            if (command != "") {
+                send_data_to(sockfd, addr, CLIENT_MODE, command);
+            }
         }
     }
     return 0;
@@ -123,20 +133,112 @@ void send_data_to(int sockfd, struct sockaddr_in addr, int mode, std::string dat
     }
 }
 
-std::string run_command(std::string command, int mode) {
+std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::string command, std::map<std::string, struct sockaddr_in> &online_user) {
     std::string ret = "";
     string_vector cmds = string_split(command);
     if (cmds.size() < 1) {
         ret = "Empty input";
         return ret;
     }
-    if (mode == SERVER_MODE) {
-        
-    } else if (mode == CLIENT_MODE) {
-        
-    } else {
-        // Unknown mode, do nothing
+    if (cmds.at(0) == "R") {
+        // Register
+        logging("Register account: " + cmds.at(1) + " password: " + cmds.at(2));
+        int rc = 0;
+        result_set rs;
+        {
+            std::string sql = "INSERT INTO user VALUES ('" + cmds.at(1) + "', '" + cmds.at(2) + "')";
+            rs = exec_sql(db, sql, rc);
+        }
+        if (rc == SQLITE_OK) {
+            ret = "R_R Accepted";
+            logging("Register accepted");
+        } else {
+            ret = "R_R Failed";
+            logging("Register failed");
+        }
+    } else if (cmds.at(0) == "LI") {
+        // Login
+        logging("Login account: " + cmds.at(1) + " password: " + cmds.at(2));
+        int rc = 0;
+        result_set rs;
+        {
+            std::string sql = "SELECT * FROM user WHERE account='" + cmds.at(1) + "' AND password='" + cmds.at(2) + "'";
+            rs = exec_sql(db, sql, rc);
+        }
+        logging("Size: " + std::to_string(rs.size()));
+        if (rc == SQLITE_OK && rs.size() >= 1) {
+            std::string acc = rs["account"];
+            online_user[acc] = addr;
+            logging("Login " + acc + " accepted");
+            ret = "R_LI Accepted " + acc;
+        } else {
+            logging("Login failed");
+            ret = "R_LI Failed";
+        }
+    } else if (cmds.at(0) == "LO") {
+        // Logout
+        logging("Logout account: " + cmds.at(1));
+        online_user.erase(cmds.at(1));
+        ret = "R_LO Accepted";
+    } else if (cmds.at(0) == "SU") {
+        // Show users
+        logging("Show user");
+        ret = "R_SU";
+        for (auto iter = online_user.begin(); iter != online_user.end(); iter++) {
+            ret = ret + " " + (iter->first);
+        }
     }
+        
     return ret;
 }
 
+std::string run_command_client(std::string command, char *username) {
+    std::string t_username = "";
+    std::string ret = "";
+    string_vector cmds = string_split(command);
+    if (cmds.size() < 1) {
+        ret = "Empty input";
+        return ret;
+    }
+    if (cmds.at(0) == "R") {
+        // Register
+        std::cout << "Account: ";
+        t_username = read_line();
+        ret = "R " + t_username;
+        logging("GET " + std::string(username));
+        std::cout << "Password: ";
+        ret = ret + " " + read_line();
+    } else if (cmds.at(0) == "R_R") {
+        // Server reply register
+        show_welcome_message();
+        std::cout << "Register " + cmds.at(1) << std::endl;
+    } else if (cmds.at(0) == "LI") {
+        // Login
+        std::cout << "Account: ";
+        t_username = read_line();
+        strcpy(username, t_username.c_str());
+        ret = "LI " + t_username;
+        std::cout << "Password: ";
+        ret = ret + " " + read_line();
+    } else if (cmds.at(0) == "R_LI") {
+        // Server reply login
+        if (cmds.at(1) == "Accepted") {
+            show_lobby_message(cmds.at(2));
+        } else {
+            std::cout << "Login " + cmds.at(1) << std::endl;
+        }
+    } else if (cmds.at(0) == "LO") {
+        ret = "LO " + std::string(username);
+        logging(ret + "|");
+    } else if (cmds.at(0) == "R_LO") {
+        show_welcome_message();
+        std::cout << "Logout\n";
+    } else if (cmds.at(0) == "SU") {
+        ret = "SU";
+    } else if (cmds.at(0) == "R_SU") {
+        show_online_user(cmds);
+    } else {
+        logging("Unknown Command");
+    }
+    return ret;
+}

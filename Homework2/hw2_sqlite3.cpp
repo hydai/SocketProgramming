@@ -16,8 +16,9 @@ bool init_db(sqlite3* &db) {
        close_db(db);
        return false;
    }
+   int rc = 0;
    for (int i = 0; i < INIT_SQL_SIZE; i++) {
-       exec_sql(db, std::string(init_sql[i]));
+       exec_sql(db, std::string(init_sql[i]), rc);
    }
    
    return true;
@@ -27,9 +28,8 @@ void close_db(sqlite3* &db) {
     sqlite3_close(db);
 }
 
-result_set exec_sql(sqlite3* &db, std::string sql) {
+result_set exec_sql(sqlite3* &db, std::string sql, int &rc) {
     char *errMsg = NULL;
-    int rc = 0;
     result_set rs;
     rs.clear();
     rc = sqlite3_exec(db, sql.c_str(), callback, (void *)&rs, &errMsg);
@@ -37,7 +37,7 @@ result_set exec_sql(sqlite3* &db, std::string sql) {
         logging("SQL error: " + std::string(errMsg) + "\n");
         sqlite3_free(errMsg);
     } else {
-        logging("Operation done successfully\n");
+        logging("SQL OK: Operation done successfully\n");
     }
     return rs;
 }
@@ -45,7 +45,8 @@ result_set exec_sql(sqlite3* &db, std::string sql) {
 static int callback(void *vrs, int numOfCol, char **valueOfCol, char **nameOfCol){
     result_set rs = *(result_set *)vrs;
     for (int i = 0; i < numOfCol; i++) {
-        rs.insert( std::pair<std::string, std::string>(nameOfCol[i], (valueOfCol[i]?valueOfCol[i]:"NULL")) );
+        logging(std::string("Query: ") + nameOfCol[i] + " " + (valueOfCol[i]?valueOfCol[i]:"NULL"));
+        ((result_set *)vrs)->insert( std::pair<std::string, std::string>(nameOfCol[i], (valueOfCol[i]?valueOfCol[i]:"NULL")) );
     }
     return 0;
 }

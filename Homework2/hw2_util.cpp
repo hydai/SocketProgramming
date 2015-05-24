@@ -7,7 +7,7 @@ void logging(std::string msg) {
     struct tm * now = localtime( & t );
     std::cerr << now->tm_hour << ':'
               << now->tm_min << ':'
-              << now->tm_sec
+              << now->tm_sec << " "
               << msg
               << std::endl;
 }

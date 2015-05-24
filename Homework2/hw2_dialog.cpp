@@ -8,13 +8,13 @@ void show_welcome_message() {
               << "[R]Registe [LI]Login\n";
 }
 
-void show_lobby_message(std::string &user_name) {
+void show_lobby_message(std::string &username) {
     system("clear");
     std::cout << "**********Hello, "
-              << user_name
+              << username
               << "**********\n"
-              << "[SU]Show user [SA]Show Article [A]Add Article [E]Enter Article\n"
-              << "[Y]Yell [T]Tell [LO]Logout\n"
+              << "[SU]Show user [SA]Show Article [A]Add Article\n"
+              << "[Y]Yell [T]Tell [LO]Logout [DA]Delete Account\n"
               << std::endl;
 }
 
@@ -30,4 +30,13 @@ void show_article_content() {
     std::cout << "**********Article**********\n"
               << "[U]Upload [D]Download [D]Delete Article\n"
               << std::endl;
+}
+
+void show_online_user(string_vector &sl) {
+    std::cout << "**********Online User**********\n";
+    auto iter = sl.begin(); iter++;
+    for (; iter != sl.end(); iter++) {
+        std::cout << *iter << std::endl;
+    }
+    std::cout << "*******************************\n";
 }

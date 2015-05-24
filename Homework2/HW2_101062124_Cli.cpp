@@ -7,8 +7,8 @@ int main (int argc, char **argv) {
         return 1;
     }
     struct sockaddr_in addr;
-    int sockfd = create_udp_client(addr, argv[1], std::atoi(argv[2]));
+    int sockfd = create_udp_client(&addr, argv[1], std::atoi(argv[2]));
     mkdir("Download", 0777);
-    int status = client_echo(sockfd);
+    int status = client_echo(sockfd, addr);
     return status;
 }

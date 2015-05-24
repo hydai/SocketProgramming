@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
         logging("Fatal error in init_db");
         return 1;
     }
-    server_echo(sockfd);
+    server_echo(sockfd, db);
     close_db(db);
     return 0;
 }
