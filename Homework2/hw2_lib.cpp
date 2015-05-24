@@ -268,6 +268,24 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
             logging("SELECT text failed");
             ret = "R_SA Failed 0";
         }
+    } else if (cmds.at(0) == "DA") {
+        // Delete Article
+        logging("Delete Article ID: " + cmds.at(2) + "by " + cmds.at(1));
+        int rc = 0;
+        result_set rs;
+        {
+            std::string sql = "SELECT * FROM text WHERE tid='" + cmds.at(2) + "' AND account='" + cmds.at(1) + "'";
+            rs = exec_sql(db, sql, rc);
+        }
+        if (rc == SQLITE_OK && rs.size() > 0) {
+            logging("DELETE text accepted");
+            std::string sql = "DELETE FROM text WHERE tid='" + cmds.at(2) + "' AND account='" + cmds.at(1) + "'";
+            rs = exec_sql(db, sql, rc);
+            ret = run_command_server(addr, db, "SA", online_user, sockfd);
+        } else {
+            logging("DELETE text failed");
+            ret = "R_DA";
+        }
     }
     return ret;
 }
@@ -360,6 +378,19 @@ std::string run_command_client(std::string command, char *username) {
         ret = ret + read_line();
     } else if (cmds.at(0) == "R_A") {
         // Server reply add article
+        ret = "SA";
+    } else if (cmds.at(0) == "DA") {
+        // Delete Article
+        ret = "DA " + std::string(username) + " ";
+        std::cout << "Kill by id: ";
+        ret = ret + read_line();
+    } else if (cmds.at(0) == "R_DA") {
+        // Server reply Delete Article
+        std::cout << "Kill failed(permission deny)" << std::endl;
+        std::cout << "[BL]Back to Article List" << std::endl;
+        ret = "";
+    } else if (cmds.at(0) == "BL") {
+        // Back to Article List
         ret = "SA";
     } else if (cmds.at(0) == "SA") {
         // Show Article

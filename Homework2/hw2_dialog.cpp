@@ -28,7 +28,7 @@ void show_article_list() {
 void show_article_content() {
     system("clear");
     std::cout << "**********Article**********\n"
-              << "[UL]Upload [DL]Download [DD]Delete [BL]Back to List\n"
+              << "[UL]Upload [DL]Download [DD]Delete [RR]Reply [BL]Back to List\n"
               << std::endl;
 }
 
