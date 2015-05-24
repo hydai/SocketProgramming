@@ -336,7 +336,7 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
             }
         }
         if (isBlack) {
-            ret = ret + " 0";
+            ret = ret + " 0 0";
         } else {
             ret = ret + " 1";
             ret = ret + " " + rs[0]["title"];
@@ -345,19 +345,48 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
             ret = ret + " " + rs[0]["port"];
             ret = ret + " " + rs[0]["hit"];
             ret = ret + " " + rs[0]["content"];
+            // Reply
+            sql = "SELECT * FROM reply WHERE tid='" + cmds.at(2) + "'";
+            rs = exec_sql(db, sql, rc);
+            ret = ret + " " + std::to_string(rs.size());
+            int cs = rs.size();
+            for (int i = 0; i < cs; i++) {
+                ret = ret + " " + rs[i]["account"];
+                ret = ret + " " + rs[i]["ip"];
+                ret = ret + " " + rs[i]["port"];
+                ret = ret + " " + rs[i]["message"];
+            }
         }
 
-        // Reply
-        sql = "SELECT * FROM reply WHERE tid='" + cmds.at(2) + "'";
-        rs = exec_sql(db, sql, rc);
-        ret = ret + " " + std::to_string(rs.size());
-        int cs = rs.size();
-        for (int i = 0; i < cs; i++) {
-            ret = ret + " " + rs[i]["account"];
-            ret = ret + " " + rs[i]["ip"];
-            ret = ret + " " + rs[i]["port"];
-            ret = ret + " " + rs[i]["message"];
+    } else if (cmds.at(0) == "AB") {
+        logging("AB from " + cmds.at(1) + " in tid " + cmds.at(2) + " bk " + cmds.at(3));
+        int rc = 0;
+        result_set rs;
+        {
+            std::string sql = "SELECT * FROM text WHERE tid='" + cmds.at(2) + "'";
+            rs = exec_sql(db, sql, rc);
         }
+        if (cmds.at(1) == rs[0]["account"]) {
+            // Author
+            std::string sql = "INSERT INTO blacklist (tid, blackacc) VALUES ('" + cmds.at(2) + "', '" + cmds.at(3) + "')";
+            rs = exec_sql(db, sql, rc);
+        }
+        ret = run_command_server(addr, db, "E " + cmds.at(1) + " " + cmds.at(2), online_user, sockfd);
+    } else if (cmds.at(0) == "DB") {
+        logging("DB from " + cmds.at(1) + " in tid " + cmds.at(2) + " bk " + cmds.at(3));
+        int rc = 0;
+        result_set rs;
+        {
+            std::string sql = "SELECT * FROM text WHERE tid='" + cmds.at(2) + "'";
+            rs = exec_sql(db, sql, rc);
+        }
+        if (cmds.at(1) == rs[0]["account"]) {
+            // Author
+            std::string sql = "DELETE FROM blacklist WHERE tid='" + cmds.at(2) + "' AND blackacc='" + cmds.at(3) + "'";
+            logging("DB sql: " + sql);
+            rs = exec_sql(db, sql, rc);
+        }
+        ret = run_command_server(addr, db, "E " + cmds.at(1) + " " + cmds.at(2), online_user, sockfd);
     }
     return ret;
 }
@@ -539,6 +568,14 @@ std::string run_command_client(std::string command, char *username, char *tid) {
               << "Message: " << cmds.at(cmdct+3) << std::endl;
             cmdct += 4;
         }
+    } else if (cmds.at(0) == "AB") {
+        ret = "AB " + std::string(username) + " " + std::string(tid) + " ";
+        std::cout << "Black someone: ";
+        ret = ret + read_line();
+    } else if (cmds.at(0) == "DB") {
+        ret = "DB " + std::string(username) + " " + std::string(tid) + " ";
+        std::cout << "De-Black someone: ";
+        ret = ret + read_line();
     } else {
         logging("Unknown Command");
     }
