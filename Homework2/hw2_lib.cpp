@@ -373,12 +373,13 @@ std::string run_command_client(std::string command, char *username) {
                 ss << cmds.at(2);
                 int cs; ss >> cs;
                 for (int i = 0; i < cs; i++) {
-                    std::cout << "ID: " << cmds.at(3+i) << " | "
-                              << "Title: " << cmds.at(3+i+1) << " | "
-                              << "Author: " << cmds.at(3+i+2) << " | "
-                              << "Ip: " << cmds.at(3+i+3) << ":" << cmds.at(3+i+4) << " | "
-                              << "Hit: " << cmds.at(3+i+5) << " | "
-                              << "Content: " << cmds.at(3+i+6) << std::endl;
+                    int j = i*7;
+                    std::cout << "ID: " << cmds.at(3+j) << " | "
+                              << "Title: " << cmds.at(3+j+1) << " | "
+                              << "Author: " << cmds.at(3+j+2) << " | "
+                              << "Ip: " << cmds.at(3+j+3) << ":" << cmds.at(3+j+4) << " | "
+                              << "Hit: " << cmds.at(3+j+5) << " | "
+                              << "Content: " << cmds.at(3+j+6) << std::endl;
                 }
             }
         } else {
