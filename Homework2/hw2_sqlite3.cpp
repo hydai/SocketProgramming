@@ -31,7 +31,6 @@ void close_db(sqlite3* &db) {
 result_set exec_sql(sqlite3* &db, std::string sql, int &rc) {
     char *errMsg = NULL;
     result_set rs;
-    rs.clear();
     rc = sqlite3_exec(db, sql.c_str(), callback, (void *)&rs, &errMsg);
     if(rc != SQLITE_OK) {
         logging("SQL error: " + std::string(errMsg) + "\n");
@@ -43,10 +42,11 @@ result_set exec_sql(sqlite3* &db, std::string sql, int &rc) {
 }
 
 static int callback(void *vrs, int numOfCol, char **valueOfCol, char **nameOfCol){
-    result_set rs = *(result_set *)vrs;
+    std::map<std::string, std::string> rs;
     for (int i = 0; i < numOfCol; i++) {
         logging(std::string("Query: ") + nameOfCol[i] + " " + (valueOfCol[i]?valueOfCol[i]:"NULL"));
-        ((result_set *)vrs)->insert( std::pair<std::string, std::string>(nameOfCol[i], (valueOfCol[i]?valueOfCol[i]:"NULL")) );
+        rs.insert( std::pair<std::string, std::string>(nameOfCol[i], (valueOfCol[i]?valueOfCol[i]:"NULL")) );
     }
+    ((result_set *)vrs)->push_back(rs);
     return 0;
 }

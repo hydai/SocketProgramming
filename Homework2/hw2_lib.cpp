@@ -165,9 +165,8 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
             std::string sql = "SELECT * FROM user WHERE account='" + cmds.at(1) + "' AND password='" + cmds.at(2) + "'";
             rs = exec_sql(db, sql, rc);
         }
-        logging("Size: " + std::to_string(rs.size()));
         if (rc == SQLITE_OK && rs.size() >= 1) {
-            std::string acc = rs["account"];
+            std::string acc = rs[0]["account"];
             online_user[acc] = addr;
             logging("Login " + acc + " accepted");
             ret = "R_LI Accepted " + acc;
@@ -222,8 +221,54 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
             ret = ret + " " + cmds.at(i);
         }
         sendto(sockfd, ret.c_str(), ret.length(), 0, (struct sockaddr *)&(online_user[cmds.at(2)]), sizeof(online_user[cmds.at(2)]));
+    } else if (cmds.at(0) == "A") {
+        // Add Article
+        logging("Add Article");
+        std::string username = cmds.at(1);
+        std::string title = cmds.at(2);
+        std::string content = cmds.at(3);
+        int rc = 0;
+        result_set rs;
+        {
+            std::string sql = "INSERT INTO text (title, content, account, ip, port) VALUES ('"
+                             + title + "', '" + content + "', '" + username + "', '"
+                             + get_ip_info(addr).ip + "', '" + std::to_string(get_ip_info(addr).port) + "')";
+            rs = exec_sql(db, sql, rc);
+        }
+        if (rc == SQLITE_OK) {
+            logging("Add article " + cmds.at(2) + " accepted");
+            ret = "R_A Accepted";
+        } else {
+            logging("Add article " + cmds.at(2) + " failed");
+            ret = "R_A Failed";
+        }
+    } else if (cmds.at(0) == "SA") {
+        // Show Article
+        logging("Show Article");
+        int rc = 0;
+        result_set rs;
+        {
+            std::string sql = "SELECT * FROM text";
+            rs = exec_sql(db, sql, rc);
+        }
+        if (rc == SQLITE_OK) {
+            logging("SELECT text accepted");
+            ret = "R_SA Accepted";
+            ret = ret + " " + std::to_string(rs.size()) + " ";
+            for (int i = 0; i < rs.size(); i++) {
+                ret = ret + rs[i]["tid"] + " "
+                  + rs[i]["title"] + " "
+                  + rs[i]["account"] + " "
+                  + rs[i]["ip"] + " "
+                  + rs[i]["port"] + " "
+                  + rs[i]["hit"] + " "
+                  + rs[i]["content"] + " ";
+            }
+        } else {
+            logging("SELECT text failed");
+            ret = "R_SA Failed 0";
+        }
     }
-        
     return ret;
 }
 
@@ -306,6 +351,42 @@ std::string run_command_client(std::string command, char *username) {
         // Server someone tell to you
         if (cmds.at(2) == std::string(username))
             show_tell_message(cmds);
+    } else if (cmds.at(0) == "A") {
+        // Add Article
+        ret = "A " + std::string(username) + " ";
+        std::cout << "Title: ";
+        ret = ret + read_line() + " ";
+        std::cout << "Content: ";
+        ret = ret + read_line();
+    } else if (cmds.at(0) == "R_A") {
+        // Server reply add article
+        ret = "SA";
+    } else if (cmds.at(0) == "SA") {
+        // Show Article
+        ret = "SA";
+    } else if (cmds.at(0) == "R_SA") {
+        // Server reply show article
+        show_article_list();
+        if (cmds.at(1) == "Accepted") {
+            {
+                std::stringstream ss;
+                ss << cmds.at(2);
+                int cs; ss >> cs;
+                for (int i = 0; i < cs; i++) {
+                    std::cout << "ID: " << cmds.at(3+i) << " | "
+                              << "Title: " << cmds.at(3+i+1) << " | "
+                              << "Author: " << cmds.at(3+i+2) << " | "
+                              << "Ip: " << cmds.at(3+i+3) << ":" << cmds.at(3+i+4) << " | "
+                              << "Hit: " << cmds.at(3+i+5) << " | "
+                              << "Content: " << cmds.at(3+i+6) << std::endl;
+                }
+            }
+        } else {
+            std::cout << "Load Article Failed" << std::endl;
+        }
+    } else if (cmds.at(0) == "B") {
+        show_lobby_message(std::string(username));
+        ret = "";
     } else {
         logging("Unknown Command");
     }

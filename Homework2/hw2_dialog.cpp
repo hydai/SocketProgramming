@@ -8,7 +8,7 @@ void show_welcome_message() {
               << "[R]Registe [LI]Login\n";
 }
 
-void show_lobby_message(std::string &username) {
+void show_lobby_message(std::string username) {
     system("clear");
     std::cout << "**********Hello, "
               << username

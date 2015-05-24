@@ -23,7 +23,7 @@
 #include "const.h"
 
 // Type
-typedef std::map<std::string, std::string> result_set;
+typedef std::vector< std::map<std::string, std::string> > result_set;
 typedef std::vector<std::string> string_vector;
 struct IP_INFO {
     std::string ip;
@@ -45,7 +45,7 @@ void send_data_to(int sockfd, struct sockaddr_in addr, int mode, std::string dat
 
 // Message
 void show_welcome_message();
-void show_lobby_message(std::string &username);
+void show_lobby_message(std::string username);
 void show_article_list();
 void show_article_content();
 void show_online_user(string_vector &ul);
