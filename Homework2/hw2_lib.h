@@ -33,7 +33,7 @@ struct IP_INFO {
 // Execute command
 bool exec(std::string command);
 std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::string command, std::map<std::string, struct sockaddr_in> &online_user, int sockfd);
-std::string run_command_client(std::string command, char *username);
+std::string run_command_client(std::string command, char *username, char *tid);
 
 // Socket
 IP_INFO get_ip_info(struct sockaddr_in addr);

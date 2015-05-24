@@ -61,6 +61,7 @@ int create_udp_client(struct sockaddr_in *addr, std::string ip, int port) {
 int client_echo(int sockfd, struct sockaddr_in addr) {
     int istreamfd = fileno(stdin);
     char username[128] = "";
+    char tid[128] = "";
     fd_set allset;
     FD_ZERO(&allset);
     show_welcome_message();
@@ -82,7 +83,7 @@ int client_echo(int sockfd, struct sockaddr_in addr) {
             } else {
                 recv_string[n] = '\0';
                 logging("Server reply: " + std::string(recv_string));
-                std::string command = run_command_client(recv_string, username);
+                std::string command = run_command_client(recv_string, username, tid);
                 if (command != "") {
                     send_data_to(sockfd, addr, CLIENT_MODE, command);
                 }
@@ -91,7 +92,7 @@ int client_echo(int sockfd, struct sockaddr_in addr) {
         if (FD_ISSET(istreamfd, &allset)) {
             std::string input = read_line();
             logging("Client input: " + input);
-            std::string command = run_command_client(input, username);
+            std::string command = run_command_client(input, username, tid);
             if (command != "") {
                 send_data_to(sockfd, addr, CLIENT_MODE, command);
             }
@@ -286,6 +287,21 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
             logging("DELETE text failed");
             ret = "R_DA";
         }
+    } else if (cmds.at(0) == "RR") {
+        // Reply Article
+        logging("Reply Article ID: " + cmds.at(1) + " by " + cmds.at(2));
+        int rc = 0;
+        result_set rs, blk;
+        {
+            std::string sql = "INSERT INTO reply (tid, account, message, ip, port) VALUES ('"
+                            + cmds.at(1) + "', '"
+                            + cmds.at(2) + "', '"
+                            + cmds.at(3) + "', '"
+                            + get_ip_info(addr).ip + "', '"
+                            + std::to_string(get_ip_info(addr).port) + "')";
+            rs = exec_sql(db, sql, rc);
+        }
+        ret = run_command_server(addr, db, "E " + cmds.at(2) + " " + cmds.at(1), online_user, sockfd);
     } else if (cmds.at(0) == "E") {
         // Enter Article
         logging("Enter Article ID: " + cmds.at(2) + " by " + cmds.at(1));
@@ -330,11 +346,23 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
             ret = ret + " " + rs[0]["hit"];
             ret = ret + " " + rs[0]["content"];
         }
+
+        // Reply
+        sql = "SELECT * FROM reply WHERE tid='" + cmds.at(2) + "'";
+        rs = exec_sql(db, sql, rc);
+        ret = ret + " " + std::to_string(rs.size());
+        int cs = rs.size();
+        for (int i = 0; i < cs; i++) {
+            ret = ret + " " + rs[i]["account"];
+            ret = ret + " " + rs[i]["ip"];
+            ret = ret + " " + rs[i]["port"];
+            ret = ret + " " + rs[i]["message"];
+        }
     }
     return ret;
 }
 
-std::string run_command_client(std::string command, char *username) {
+std::string run_command_client(std::string command, char *username, char *tid) {
     std::string t_username = "";
     std::string ret = "";
     string_vector cmds = string_split(command);
@@ -467,6 +495,14 @@ std::string run_command_client(std::string command, char *username) {
         // Enter Article
         ret = "E " + std::string(username) + " ";
         std::cout << "Article id: ";
+        std::string ttid = read_line();
+        strcpy(tid, ttid.c_str());
+        ret = ret + ttid;
+    } else if (cmds.at(0) == "RR") {
+        // Reply Article
+        ret = "RR " + std::string(tid) + " ";
+        ret = ret + std::string(username) + " ";
+        std::cout << "Reply something: ";
         ret = ret + read_line();
     } else if (cmds.at(0) == "R_E") {
         // Server reply Enter Article
@@ -492,6 +528,16 @@ std::string run_command_client(std::string command, char *username) {
               << "Ip: " << cmds.at(cmdct+2) << ":" << cmds.at(cmdct+3) << std::endl
               << "Hit: " << cmds.at(cmdct+4) << std::endl
               << "Content: " << cmds.at(cmdct+5) << std::endl;
+            cmdct += 6;
+        }
+        int cs = atoi(cmds.at(cmdct++).c_str());
+        std::cout << "==============Reply==============" << std::endl;
+        for (int i = 0; i < cs; i++) {
+            std::cout
+              << "Account: " << cmds.at(cmdct) << "("
+              << "Ip: " << cmds.at(cmdct+1) << ":" << cmds.at(cmdct+2) << " => "
+              << "Message: " << cmds.at(cmdct+3) << std::endl;
+            cmdct += 4;
         }
     } else {
         logging("Unknown Command");
