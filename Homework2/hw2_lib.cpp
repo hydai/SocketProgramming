@@ -43,7 +43,7 @@ void server_echo(int sockfd, sqlite3* &db) {
         sendto(sockfd, reply_string.c_str(), reply_string.length(), 0, (struct sockaddr *)&addr, len);
         // Two packets in very short time, sometime it will be broken...
         usleep(SLEEP_TIME_US);
-        reply_string = run_command_server(addr, db, msg, online_user);
+        reply_string = run_command_server(addr, db, msg, online_user, sockfd);
         sendto(sockfd, reply_string.c_str(), reply_string.length(), 0, (struct sockaddr *)&addr, len);
     }
 }
@@ -133,7 +133,7 @@ void send_data_to(int sockfd, struct sockaddr_in addr, int mode, std::string dat
     }
 }
 
-std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::string command, std::map<std::string, struct sockaddr_in> &online_user) {
+std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::string command, std::map<std::string, struct sockaddr_in> &online_user, int sockfd) {
     std::string ret = "";
     string_vector cmds = string_split(command);
     if (cmds.size() < 1) {
@@ -187,6 +187,24 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
         for (auto iter = online_user.begin(); iter != online_user.end(); iter++) {
             ret = ret + " " + (iter->first);
         }
+    } else if (cmds.at(0) == "Y") {
+        // Yell
+        logging("Yell from " + cmds.at(1));
+        ret = "R_Y " + cmds.at(1);
+        for (int i = 2; i < cmds.size(); i++) {
+            ret = ret + " " + cmds.at(i);
+        }
+        for (auto iter = online_user.begin(); iter != online_user.end(); iter++) {
+            sendto(sockfd, ret.c_str(), ret.length(), 0, (struct sockaddr *)&(iter->second), sizeof(iter->second));
+        }
+    } else if (cmds.at(0) == "T") {
+        // Tell
+        logging("Tell from " + cmds.at(1) + " to " + cmds.at(2));
+        ret = "R_T " + cmds.at(1) + " " + cmds.at(2);
+        for (int i = 3; i < cmds.size(); i++) {
+            ret = ret + " " + cmds.at(i);
+        }
+        sendto(sockfd, ret.c_str(), ret.length(), 0, (struct sockaddr *)&(online_user[cmds.at(2)]), sizeof(online_user[cmds.at(2)]));
     }
         
     return ret;
@@ -228,15 +246,38 @@ std::string run_command_client(std::string command, char *username) {
             std::cout << "Login " + cmds.at(1) << std::endl;
         }
     } else if (cmds.at(0) == "LO") {
+        // Logout
         ret = "LO " + std::string(username);
-        logging(ret + "|");
     } else if (cmds.at(0) == "R_LO") {
+        // Server reply logout
         show_welcome_message();
         std::cout << "Logout\n";
     } else if (cmds.at(0) == "SU") {
+        // Show user list
         ret = "SU";
     } else if (cmds.at(0) == "R_SU") {
+        // Server reply show user list
         show_online_user(cmds);
+    } else if (cmds.at(0) == "Y") {
+        // Yell
+        ret = "Y " + std::string(username) + " ";
+        std::cout << "Say something: ";
+        ret = ret + read_line();
+    } else if (cmds.at(0) == "R_Y") {
+        // Server boardcase
+        if (cmds.at(1) != std::string(username))
+            show_yell_message(cmds);
+    } else if (cmds.at(0) == "T") {
+        // Tell
+        ret = "T " + std::string(username) + " ";
+        std::cout << "Tell someone: ";
+        ret = ret + read_line();
+        std::cout << "Say something: ";
+        ret = ret + " " + read_line();
+    } else if (cmds.at(0) == "R_T") {
+        // Server someone tell to you
+        if (cmds.at(2) == std::string(username))
+            show_tell_message(cmds);
     } else {
         logging("Unknown Command");
     }
