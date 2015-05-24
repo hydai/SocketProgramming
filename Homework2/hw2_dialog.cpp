@@ -14,14 +14,14 @@ void show_lobby_message(std::string &username) {
               << username
               << "**********\n"
               << "[SU]Show user [SA]Show Article [A]Add Article\n"
-              << "[Y]Yell [T]Tell [LO]Logout [DA]Delete Account\n"
+              << "[Y]Yell [T]Tell [LO]Logout [D]Delete Account\n"
               << std::endl;
 }
 
 void show_article_list() {
     system("clear");
     std::cout << "**********Article List**********\n"
-              << "[E]Enter Article [D]Delete Article [B]Back\n"
+              << "[E]Enter Article [DA]Delete Article [B]Back\n"
               << std::endl;
 }
 

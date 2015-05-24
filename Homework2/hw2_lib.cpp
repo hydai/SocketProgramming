@@ -180,6 +180,23 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
         logging("Logout account: " + cmds.at(1));
         online_user.erase(cmds.at(1));
         ret = "R_LO Accepted";
+    } else if (cmds.at(0) == "D") {
+        // Delete
+        logging("Delete account: " + cmds.at(1));
+        int rc = 0;
+        result_set rs;
+        {
+            std::string sql = "DELETE FROM user WHERE account='" + cmds.at(1) + "'";
+            rs = exec_sql(db, sql, rc);
+        }
+        if (rc == SQLITE_OK) {
+            online_user.erase(cmds.at(1));
+            logging("Delete " + cmds.at(1) + " accepted");
+            ret = "R_D Accepted";
+        } else {
+            logging("Delete " + cmds.at(1) + "failed");
+            ret = "R_D Failed";
+        }
     } else if (cmds.at(0) == "SU") {
         // Show users
         logging("Show user");
@@ -252,6 +269,17 @@ std::string run_command_client(std::string command, char *username) {
         // Server reply logout
         show_welcome_message();
         std::cout << "Logout\n";
+    } else if (cmds.at(0) == "D") {
+        // Delete account
+        ret = "D " + std::string(username);
+    } else if (cmds.at(0) == "R_D") {
+        // Server reply delete account
+        show_welcome_message();
+        if (cmds.at(1) == std::string("Accepted")) {
+            std::cout << "Delete Account\n";
+        } else {
+            std::cout << "Delete Failed\n" << std::endl;
+        }
     } else if (cmds.at(0) == "SU") {
         // Show user list
         ret = "SU";
