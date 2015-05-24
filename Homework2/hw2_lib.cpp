@@ -286,6 +286,50 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
             logging("DELETE text failed");
             ret = "R_DA";
         }
+    } else if (cmds.at(0) == "E") {
+        // Enter Article
+        logging("Enter Article ID: " + cmds.at(2) + " by " + cmds.at(1));
+        ret = "R_E";
+        int rc = 0;
+        result_set rs, blk;
+        {
+            std::string sql = "SELECT * FROM text WHERE tid='" + cmds.at(2) + "'";
+            rs = exec_sql(db, sql, rc);
+            sql = "UPDATE text SET hit='" + std::to_string(atoi(rs[0]["hit"].c_str()) + 1) + "' WHERE tid='" + cmds.at(2) + "'";
+            exec_sql(db, sql, rc);
+            sql = "SELECT * FROM text WHERE tid='" + cmds.at(2) + "'";
+            rs = exec_sql(db, sql, rc);
+        }
+        std::string sql = "SELECT * from blacklist WHERE tid='" + cmds.at(2) + "'";
+        blk = exec_sql(db, sql, rc);
+        if (rs[0]["account"] == cmds.at(1)) {
+            // Author
+            ret = ret + " " + std::to_string(blk.size());
+            logging("Blacklist size: " + std::to_string(blk.size()));
+            for (int i = 0; i < blk.size(); i++) {
+                ret = ret + " " + blk[i]["blackacc"];
+            }
+        } else {
+            ret = ret + " -1";
+        }
+        bool isBlack = false;
+        for (int i = 0; i < blk.size(); i++) {
+            if (cmds.at(1) == blk[i]["blackacc"]) {
+                isBlack = true;
+                break;
+            }
+        }
+        if (isBlack) {
+            ret = ret + " 0";
+        } else {
+            ret = ret + " 1";
+            ret = ret + " " + rs[0]["title"];
+            ret = ret + " " + rs[0]["account"];
+            ret = ret + " " + rs[0]["ip"];
+            ret = ret + " " + rs[0]["port"];
+            ret = ret + " " + rs[0]["hit"];
+            ret = ret + " " + rs[0]["content"];
+        }
     }
     return ret;
 }
@@ -419,6 +463,36 @@ std::string run_command_client(std::string command, char *username) {
     } else if (cmds.at(0) == "B") {
         show_lobby_message(std::string(username));
         ret = "";
+    } else if (cmds.at(0) == "E") {
+        // Enter Article
+        ret = "E " + std::string(username) + " ";
+        std::cout << "Article id: ";
+        ret = ret + read_line();
+    } else if (cmds.at(0) == "R_E") {
+        // Server reply Enter Article
+        show_article_content();
+        int cmdct = 1;
+        if (cmds.at(cmdct++) != "-1") {
+            // Author
+            std::cout << "[AB]Add Blacklist [DB]Delete Blacklist" << std::endl;
+            std::cout << "Blacklist: " << std::endl;
+            cmdct--;
+            int cs = atoi(cmds.at(cmdct++).c_str());
+            for (int i = 0; i < cs; i++) {
+                std::cout << cmds.at(cmdct++) << " ";
+            }
+            std::cout << std::endl;
+        }
+        if (cmds.at(cmdct++) == "0") {
+            std::cout << "Permission deny" << std::endl;
+        } else {
+            std::cout
+              << "Title: " << cmds.at(cmdct) << std::endl
+              << "Author: " << cmds.at(cmdct+1) << std::endl
+              << "Ip: " << cmds.at(cmdct+2) << ":" << cmds.at(cmdct+3) << std::endl
+              << "Hit: " << cmds.at(cmdct+4) << std::endl
+              << "Content: " << cmds.at(cmdct+5) << std::endl;
+        }
     } else {
         logging("Unknown Command");
     }
