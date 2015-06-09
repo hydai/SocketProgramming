@@ -2,7 +2,6 @@
 #include "hw3_lib.h"
 
 int main(int argc, char **argv) {
-
     if (argc < 2) {
         logging("Usage: " + std::string(argv[0]) + " <port>");
         return 1;

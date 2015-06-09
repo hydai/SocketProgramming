@@ -46,8 +46,7 @@ void send_data_to(int sockfd, struct sockaddr_in addr, int mode, std::string dat
 // Message
 void show_welcome_message();
 void show_lobby_message(std::string username);
-void show_article_list();
-void show_article_content();
+void show_file_list();
 void show_online_user(string_vector &ul);
 void show_yell_message(string_vector &msg);
 void show_tell_message(string_vector &msg);

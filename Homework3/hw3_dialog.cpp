@@ -13,22 +13,16 @@ void show_lobby_message(std::string username) {
     std::cout << "**********Hello, "
               << username
               << "**********\n"
-              << "[SU]Show user [SA]Show Article [A]Add Article\n"
+              << "[SU]Show user [SF]Show File\n"
               << "[Y]Yell [T]Tell [LO]Logout [D]Delete Account\n"
               << std::endl;
 }
 
-void show_article_list() {
+void show_file_list() {
     system("clear");
-    std::cout << "**********Article List**********\n"
-              << "[E]Enter Article [DA]Delete Article [B]Back\n"
-              << std::endl;
-}
-
-void show_article_content() {
-    system("clear");
-    std::cout << "**********Article**********\n"
-              << "[UL]Upload [DL]Download [DD]Delete [RR]Reply [BL]Back to List\n"
+    std::cout << "**********File List**********\n"
+              << "[DL]Download <username> <filename>\n"
+              << "[UP]Upload <username> <filename>\n"
               << std::endl;
 }
 
