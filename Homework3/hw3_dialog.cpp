@@ -41,8 +41,8 @@ void show_online_user(string_vector &sl) {
 void show_online_file(string_vector &sl) {
     system("clear");
     std::cout << "**********File List**********\n"
-              << "[DL]Download <username> <filename>\n"
-              << "[UP]Upload <username> <filename>\n";
+              << "[DL]Download <filename> <username>\n"
+              << "[MDL]Download <filename>\n";
     std::string fn;
     int i = 1;
     fn = sl.at(i); i++;

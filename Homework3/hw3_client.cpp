@@ -34,6 +34,8 @@ void *send_file(void *ffs) {
     if (fs.total_no >= 1) {
         fileOffset = (fileSize * (fs.sub_no-1)) / fs.total_no;
         fileSize = (fileSize * fs.sub_no) / fs.total_no - fileOffset;
+        logging("File offset = " + std::to_string(fileOffset));
+        logging("File size = " + std::to_string(fileSize));
     }
     fseek(fptr , fileOffset , SEEK_SET);
 
@@ -56,34 +58,40 @@ void *send_file(void *ffs) {
     close(connfd);
     close(listenfd);
     logging("Upload " + fs.filename + " finished.");
+    fflush(stdout);
     return NULL;
 }
 
 void *get_file(void* ffs) {
     FILE_STRUCT fs = *(FILE_STRUCT *)ffs;
-    logging("Download file: " + fs.filename);
+    //logging("Download file: " + fs.filename);
     usleep(250000);
     char buf[MAXLINE+1] = {0};
     struct sockaddr_in addr;
     FILE *fptr;
     fptr = fopen(("Download/" + fs.filename).c_str(), "wb");
+    if (fptr == NULL) {
+        std::cerr << "FILE ERROR\n";
+    }
     fs.ip_info.port += fs.sub_no + 2;
     int connfd = connectByAddr(addr, fs.ip_info.ip.c_str(), fs.ip_info.port);
     read(connfd, buf, MAXLINE);
     write(connfd, buf, strlen(buf));
     long long fileSize = atol(buf);
-    logging("Download " + fs.filename + " started.");
+    //logging("Download " + fs.filename + " started.");
 
     while (fileSize > 0) {
         int n = read(connfd, buf, sizeof(buf));
         fwrite(buf, sizeof(char), n, fptr);
         memset(buf, 0, sizeof(buf));
         fileSize -= n;
+        usleep(SLEEP_TIME_US);
     }
 
     fclose(fptr);
     close(connfd);
-    logging("Download " + fs.filename + " finished.");
+    //logging("Download " + fs.filename + " finished.");
+    fflush(stdout);
     return NULL;
 }
 
@@ -96,7 +104,6 @@ void *auto_renew_filelist(void *oao) {
     logging("Calling auto renew fs");
     while (true) {
         //std::this_thread::sleep_for(std::chrono::seconds(FILE_RENEW_TIME));
-        sleep(FILE_RENEW_TIME);
         logging("Start scan file list");
         dir = opendir("Upload/");
         if (dir == NULL) {
@@ -104,11 +111,12 @@ void *auto_renew_filelist(void *oao) {
         }
         while ((entry = readdir(dir)) != NULL) {
             std::string filename(entry->d_name);
-            logging("Get " + filename);
+            //logging("Get " + filename);
             std::string sendstr = "FL " + username + " " + filename;
             sendDataByIpInfo(server_ip, sendstr);
         }
         closedir(dir);
+        sleep(FILE_RENEW_TIME);
     }
     return NULL;
 }
@@ -116,7 +124,7 @@ void *auto_renew_filelist(void *oao) {
 void sendDataByIpInfo(IP_INFO ip_info, std::string data) {
     struct sockaddr_in addr;
     int fd = create_udp_client(&addr, ip_info.ip, ip_info.port);
-    sendto(fd, data.c_str(), data.length(), 0, (struct sockaddr*)&addr, sizeof(addr));
+    sendto(fd, data.c_str(), data.length()+1, 0, (struct sockaddr*)&addr, sizeof(addr));
     close(fd);
 }
 
@@ -326,37 +334,41 @@ std::string run_command_client(std::string command, char *username, char *tid, I
         show_tell_message(cmds);
     } else if (cmds.at(0) == "MDL") {
         pthread_t threads[128];
-        std::vector<FILE_STRUCT> fss;
+        FILE_STRUCT fs[128];
         std::string filename = cmds.at(1);
         int total_no = 1;
         std::vector<std::string> ownerList;
-        for (auto &owner : filelist[filename]) {
-            if (owner != username)
-                ownerList.push_back(owner);
+        for (auto owner = filelist[filename].begin(); owner != filelist[filename].end(); owner++) {
+            logging("FILE OWNER -> " + *owner);
+            if ((*owner) != std::string(username))
+                ownerList.push_back(*owner);
         }
         if (ownerList.size() < 1) {
             logging("Error: No such file");
             return "";
         }
         total_no = ownerList.size();
+        logging("total_no: " + std::to_string(ownerList.size()));
+        for (int i = 0; i < total_no; i++)
+            logging("Owner -> " + ownerList.at(i));
         for (int i = 1; i <= total_no; i++) {
             ret = "S_D " + std::string(username) + " " + filename;
             ret = ret + " " + std::to_string(i);
             ret = ret + " " + std::to_string(total_no);
+            logging("Send data to: " + ownerList.at(i-1) + " ret = " + ret);
             sendDataByIpInfo(userlist[ownerList.at(i-1)], ret);
-            usleep(50000);
+            sleep(2);
             logging("Download " + filename + " "
                     + std::to_string(i) + "/"
                     + std::to_string(total_no)
                     + " from " + ownerList.at(i-1));
-            FILE_STRUCT fs;
-            fs.filename = filename + "." + std::to_string(i);
-            fs.sub_no = i;
-            fs.total_no = total_no;
-            fs.ip_info.ip = ip_info.ip;
-            fs.ip_info.port = 37899;
-            fss.push_back(fs);
-            pthread_create(&threads[i-1], NULL, get_file, (void*)&fss[i-1]);
+            fs[i-1].filename = filename + "." + std::to_string(i);
+            fs[i-1].sub_no = i;
+            fs[i-1].total_no = total_no;
+            fs[i-1].ip_info.ip = ip_info.ip;
+            fs[i-1].ip_info.port = 37899;
+            logging("Call thread");
+            pthread_create(&threads[i-1], NULL, get_file, (void*)&fs[i-1]);
         }
         ret = "";
         FILE *fptr = fopen(("Download/" + filename).c_str(), "wb");
