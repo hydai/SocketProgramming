@@ -118,7 +118,7 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
         // Client sends file list
         logging("Client Sends file list");
         online_file[cmds.at(2)].insert(cmds.at(1));
-        std::string updateFileCmd = "U_FL";
+        std::string updateFileCmd = "U_SF";
         for (auto iter = online_file.begin(); iter != online_file.end(); iter++) {
             updateFileCmd = updateFileCmd + " " + iter->first;
             updateFileCmd = updateFileCmd + " " + std::to_string((iter->second).size());

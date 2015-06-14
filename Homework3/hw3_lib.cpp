@@ -63,20 +63,3 @@ void send_data_to(int sockfd, struct sockaddr_in addr, int mode, std::string dat
         // Unknown mode, do nothing
     }
 }
-
-void auto_renew_filelist(std::stringstream& ss) {
-    DIR *dir;
-    struct dirent *entry;
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::seconds(FILE_RENEW_TIME));
-        if (ss.str().size() > 0) {
-            logging("Renew is blocked because the local snapshot of file list is not empty");
-            continue;
-        }
-        dir = opendir("Upload/");
-        while ((entry = readdir(dir)) != NULL) {
-            ss << (entry->d_name) << " ";
-        }
-        closedir(dir);
-    }
-}

@@ -29,9 +29,33 @@ void show_file_list() {
 void show_online_user(string_vector &sl) {
     system("clear");
     std::cout << "**********Online User**********\n";
-    auto iter = sl.begin(); iter++;
-    for (; iter != sl.end(); iter++) {
-        std::cout << *iter << std::endl;
+    for (int i = 1; i < sl.size(); i += 3) {
+        std::cout << sl.at(i) + " "
+                  << sl.at(i+1) + " "
+                  << sl.at(i+2)
+                  << std::endl;
+    }
+    std::cout << "*******************************\n";
+}
+
+void show_online_file(string_vector &sl) {
+    system("clear");
+    std::cout << "**********Online User**********\n";
+    std::string fn;
+    int i = 1;
+    fn = sl.at(i); i++;
+    for (; i < sl.size(); ) {
+        int fno = atoi(sl.at(i).c_str());
+        i++;
+        std::cout << "File " + fn + ": ";
+        for (; fno > 0 ; fno--) {
+            std::cout << sl.at(i); i++;
+        }
+        std::cout << std::endl;
+        if (i < sl.size()) {
+            fn = sl.at(i);
+            i++;
+        }
     }
     std::cout << "*******************************\n";
 }
