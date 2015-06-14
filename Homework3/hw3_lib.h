@@ -1,5 +1,5 @@
-#ifndef HW2_LIB_H
-#define HW2_LIB_H
+#ifndef HW3_LIB_H
+#define HW3_LIB_H
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,8 +18,14 @@
 #include <iostream>
 #include <sstream>
 #include <map>
+#include <set>
 #include <vector>
 #include <string>
+#include <utility>
+#include <thread>
+#include <chrono>
+#include <functional>
+#include <atomic>
 #include "const.h"
 
 // Type
@@ -32,7 +38,7 @@ struct IP_INFO {
 
 // Execute command
 bool exec(std::string command);
-std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::string command, std::map<std::string, struct sockaddr_in> &online_user, int sockfd);
+std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::string command, std::map<std::string, struct sockaddr_in> &online_user, std::map<std::string, std::set<std::string> > &online_file, int sockfd);
 std::string run_command_client(std::string command, char *username, char *tid);
 
 // Socket
@@ -42,6 +48,8 @@ int create_udp_client(struct sockaddr_in *addr, std::string ip, int port);
 void server_echo(int sockfd, sqlite3* &db);
 int client_echo(int sockfd, struct sockaddr_in addr);
 void send_data_to(int sockfd, struct sockaddr_in addr, int mode, std::string data);
+int connectByAddr(struct sockaddr_in &addr, const char *ip, int port);
+int listenByAddr(struct sockaddr_in &addr, int port);
 
 // Message
 void show_welcome_message();

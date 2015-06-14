@@ -18,6 +18,8 @@ void server_echo(int sockfd, sqlite3* &db) {
     struct sockaddr_in addr;
     socklen_t len = sizeof(addr);
     std::map<std::string, struct sockaddr_in> online_user;
+    std::map<std::string, std::set<std::string> > online_file;
+    online_file.clear();
     online_user.clear();
     struct timeval tv;
     tv.tv_sec = 0;
@@ -43,12 +45,13 @@ void server_echo(int sockfd, sqlite3* &db) {
         sendto(sockfd, reply_string.c_str(), reply_string.length(), 0, (struct sockaddr *)&addr, len);
         // Two packets in very short time, sometime it will be broken...
         usleep(SLEEP_TIME_US);
-        reply_string = run_command_server(addr, db, msg, online_user, sockfd);
-        sendto(sockfd, reply_string.c_str(), reply_string.length(), 0, (struct sockaddr *)&addr, len);
+        reply_string = run_command_server(addr, db, msg, online_user, online_file, sockfd);
+        if (reply_string.size() > 0)
+            sendto(sockfd, reply_string.c_str(), reply_string.length(), 0, (struct sockaddr *)&addr, len);
     }
 }
 
-std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::string command, std::map<std::string, struct sockaddr_in> &online_user, int sockfd) {
+std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::string command, std::map<std::string, struct sockaddr_in> &online_user, std::map<std::string, std::set<std::string> > &online_file, int sockfd) {
     std::string ret = "";
     string_vector cmds = string_split(command);
     if (cmds.size() < 1) {
@@ -111,12 +114,50 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
             logging("Delete " + cmds.at(1) + "failed");
             ret = "R_D Failed";
         }
+    } else if (cmds.at(0) == "FL") {
+        // Client sends file list
+        logging("Client Sends file list");
+        online_file[cmds.at(2)].insert(cmds.at(1));
+        std::string updateFileCmd = "U_FL";
+        for (auto iter = online_file.begin(); iter != online_file.end(); iter++) {
+            updateFileCmd = updateFileCmd + " " + iter->first;
+            updateFileCmd = updateFileCmd + " " + std::to_string((iter->second).size());
+            for (auto iiter = (iter->second).begin(); iiter != (iter->second).end(); iiter++) {
+                updateFileCmd = updateFileCmd + " " + *iiter;
+            }
+        }
+        std::string updateUserCmd = "U_SU";
+        for (auto iter = online_user.begin(); iter != online_user.end(); iter++) {
+            updateUserCmd = updateUserCmd + " " + iter->first;
+            IP_INFO ip_info = get_ip_info(iter->second);
+            updateUserCmd = updateUserCmd + " " + ip_info.ip;
+            updateUserCmd = updateUserCmd + " " + std::to_string(ip_info.port);
+        }
+        for (auto iter = online_user.begin(); iter != online_user.end(); iter++) {
+            sendto(sockfd, updateUserCmd.c_str(), updateUserCmd.length(), 0, (struct sockaddr *)&(iter->second), sizeof(iter->second));
+            sendto(sockfd, updateFileCmd.c_str(), updateFileCmd.length(), 0, (struct sockaddr *)&(iter->second), sizeof(iter->second));
+        }
+        ret = "";
+    } else if (cmds.at(0) == "SF") {
+        // Show files
+        logging("Show files");
+        ret = "R_SF";
+        for (auto iter = online_file.begin(); iter != online_file.end(); iter++) {
+            ret = ret + " " + iter->first;
+            ret = ret + " " + std::to_string((iter->second).size());
+            for (auto iiter = (iter->second).begin(); iiter != (iter->second).end(); iiter++) {
+                ret = ret + " " + *iiter;
+            }
+        }
     } else if (cmds.at(0) == "SU") {
         // Show users
         logging("Show user");
         ret = "R_SU";
         for (auto iter = online_user.begin(); iter != online_user.end(); iter++) {
-            ret = ret + " " + (iter->first);
+            ret = ret + " " + iter->first;
+            IP_INFO ip_info = get_ip_info(iter->second);
+            ret = ret + " " + ip_info.ip;
+            ret = ret + " " + std::to_string(ip_info.port);
         }
     } else if (cmds.at(0) == "Y") {
         // Yell
@@ -126,7 +167,8 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
             ret = ret + " " + cmds.at(i);
         }
         for (auto iter = online_user.begin(); iter != online_user.end(); iter++) {
-            sendto(sockfd, ret.c_str(), ret.length(), 0, (struct sockaddr *)&(iter->second), sizeof(iter->second));
+            if (iter->first != cmds.at(1))
+                sendto(sockfd, ret.c_str(), ret.length(), 0, (struct sockaddr *)&(iter->second), sizeof(iter->second));
         }
     } else if (cmds.at(0) == "T") {
         // Tell
@@ -136,107 +178,66 @@ std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::strin
             ret = ret + " " + cmds.at(i);
         }
         sendto(sockfd, ret.c_str(), ret.length(), 0, (struct sockaddr *)&(online_user[cmds.at(2)]), sizeof(online_user[cmds.at(2)]));
-    } else if (cmds.at(0) == "A") {
-        // Add Article
-        logging("Add Article");
-        std::string username = cmds.at(1);
-        std::string title = cmds.at(2);
-        std::string content = cmds.at(3);
-        int rc = 0;
-        result_set rs;
-        {
-            std::string sql = "INSERT INTO text (title, content, account, ip, port) VALUES ('"
-                             + title + "', '" + content + "', '" + username + "', '"
-                             + get_ip_info(addr).ip + "', '" + std::to_string(get_ip_info(addr).port) + "')";
-            rs = exec_sql(db, sql, rc);
-        }
-        if (rc == SQLITE_OK) {
-            logging("Add article " + cmds.at(2) + " accepted");
-            ret = "R_A Accepted";
-        } else {
-            logging("Add article " + cmds.at(2) + " failed");
-            ret = "R_A Failed";
-        }
-    } else if (cmds.at(0) == "SA") {
-        // Show Article
-        logging("Show Article");
-        int rc = 0;
-        result_set rs;
-        {
-            std::string sql = "SELECT * FROM text";
-            rs = exec_sql(db, sql, rc);
-        }
-        if (rc == SQLITE_OK) {
-            logging("SELECT text accepted");
-            ret = "R_SA Accepted";
-            ret = ret + " " + std::to_string(rs.size()) + " ";
-            for (int i = 0; i < rs.size(); i++) {
-                ret = ret + rs[i]["tid"] + " "
-                  + rs[i]["title"] + " "
-                  + rs[i]["account"] + " "
-                  + rs[i]["ip"] + " "
-                  + rs[i]["port"] + " "
-                  + rs[i]["hit"] + " "
-                  + rs[i]["content"] + " ";
+    } else if (cmds.at(0) == "UL") {
+        char buf[MAXLINE+1];
+        usleep(SLEEP_TIME_US);
+        logging("Upload from " + cmds.at(1) + " File: " + cmds.at(2) + " Bytes: " + cmds.at(3));
+        FILE *fptr = fopen(("Upload/" + cmds.at(2)).c_str(), "wb");
+        int recivedSize = 0, fileSize = atoi(cmds.at(3).c_str());
+        if (fptr != NULL) {
+            logging("Server reciving file " + cmds.at(2) + " from " + cmds.at(1)
+                    + " Bytes: " + cmds.at(3) + " ...");
+            socklen_t len = sizeof(online_user[cmds.at(1)]);
+            while (recivedSize < fileSize) {
+                int n = recvfrom(sockfd, buf, MAXLINE, 0, (struct sockaddr*) &(online_user[cmds.at(1)]), &len);
+                if (n < 0)
+                    break;
+                recivedSize += n;
+                n = fwrite(buf, sizeof(char), n, fptr);
             }
+            logging("Server reciving file " + cmds.at(2) + " from " + cmds.at(1)
+                    + " Bytes: " + cmds.at(3) + " ...Done.");
+            fclose(fptr);
+        }
+        if (recivedSize == fileSize) {
+            std::string sql = "INSERT INTO filelist (account, filename, size) VALUES ('" + cmds.at(1) + "', '" + cmds.at(2) + "', '" + cmds.at(3) + "')";
+            int rc;
+            result_set rs = exec_sql(db, sql, rc);
         } else {
-            logging("SELECT text failed");
-            ret = "R_SA Failed 0";
+            exec("rm Upload/" + cmds.at(2));
         }
-    } else if (cmds.at(0) == "E") {
-        // Enter Article
-        logging("Enter Article ID: " + cmds.at(2) + " by " + cmds.at(1));
-        ret = "R_E";
-        int rc = 0;
-        result_set rs, blk;
-        {
-            std::string sql = "SELECT * FROM text WHERE tid='" + cmds.at(2) + "'";
-            rs = exec_sql(db, sql, rc);
-            sql = "UPDATE text SET hit='" + std::to_string(atoi(rs[0]["hit"].c_str()) + 1) + "' WHERE tid='" + cmds.at(2) + "'";
-            exec_sql(db, sql, rc);
-            sql = "SELECT * FROM text WHERE tid='" + cmds.at(2) + "'";
-            rs = exec_sql(db, sql, rc);
+        ret = "R_UL";
+        std::string sql = "SELECT * FROM filelist WHERE account='" + cmds.at(1) + "'";
+        int rc;
+        result_set rs = exec_sql(db, sql, rc);
+        for (int i = 0; i < rs.size(); i++) {
+            // R_UL uploader filename bytes
+            ret = ret + " " + rs[i]["account"] + " " + rs[i]["filename"] + " " + rs[i]["size"];
         }
-        std::string sql = "SELECT * from blacklist WHERE tid='" + cmds.at(2) + "'";
-        blk = exec_sql(db, sql, rc);
-        if (rs[0]["account"] == cmds.at(1)) {
-            // Author
-            ret = ret + " " + std::to_string(blk.size());
-            logging("Blacklist size: " + std::to_string(blk.size()));
-            for (int i = 0; i < blk.size(); i++) {
-                ret = ret + " " + blk[i]["blackacc"];
-            }
+    } else if (cmds.at(0) == "DL") {
+        logging("Download request from " + cmds.at(1) + " File: " + cmds.at(2));
+        struct stat fileStat;
+        FILE *fptr;
+        if (lstat(("Upload/" + cmds.at(2)).c_str(), &fileStat) < 0
+            || (fptr = fopen(("Upload/" + cmds.at(2)).c_str(), "rb")) == NULL) {
+            logging("Download request from " + cmds.at(1) + " File: " + cmds.at(2) + " Failed due to DNE file.");
+            ret = "R_DL 0";
         } else {
-            ret = ret + " -1";
-        }
-        bool isBlack = false;
-        for (int i = 0; i < blk.size(); i++) {
-            if (cmds.at(1) == blk[i]["blackacc"]) {
-                isBlack = true;
-                break;
+            char buf[MAXLINE+1];
+            int fileSize = fileStat.st_size, sendSize = 0;
+            logging("Server sending file " + cmds.at(2) + " to " + cmds.at(1)
+                    + " Bytes: " + std::to_string(fileSize) + " ...");
+            sendto(sockfd, std::to_string(fileSize).c_str(), std::to_string(fileSize).length(), 0, (struct sockaddr*)&(online_user[cmds.at(1)]),  sizeof(online_user[cmds.at(1)]));
+            usleep(SLEEP_TIME_US);
+            while (!feof(fptr)) {
+                int n = fread(buf, sizeof(char), sizeof(buf), fptr);
+                n = sendto(sockfd, buf, n, 0, (struct sockaddr*)&(online_user[cmds.at(1)]), sizeof(online_user[cmds.at(1)]));
+                sendSize += n;
+                usleep(SLEEP_TIME_US);
             }
-        }
-        if (isBlack) {
-            ret = ret + " 0 0";
-        } else {
-            ret = ret + " 1";
-            ret = ret + " " + rs[0]["title"];
-            ret = ret + " " + rs[0]["account"];
-            ret = ret + " " + rs[0]["ip"];
-            ret = ret + " " + rs[0]["port"];
-            ret = ret + " " + rs[0]["hit"];
-            ret = ret + " " + rs[0]["content"];
-            // Reply
-            sql = "SELECT * FROM reply WHERE tid='" + cmds.at(2) + "'";
-            rs = exec_sql(db, sql, rc);
-            ret = ret + " " + std::to_string(rs.size());
-            int cs = rs.size();
-            for (int i = 0; i < cs; i++) {
-                ret = ret + " " + rs[i]["account"];
-                ret = ret + " " + rs[i]["ip"];
-                ret = ret + " " + rs[i]["port"];
-                ret = ret + " " + rs[i]["message"];
-            }
+            logging("Server sending file " + cmds.at(2) + " to " + cmds.at(1)
+                    + " Bytes: " + std::to_string(fileSize) + " ...Done.");
+            fclose(fptr);
         }
     }
     return ret;

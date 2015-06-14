@@ -5,6 +5,7 @@ const int LISTENQ = 1024;
 const int POCKET_SIZE = 2048;
 const int WAIT_TIME_OUT_US = 10000;
 const int SLEEP_TIME_US = 1000;
+const int FILE_RENEW_TIME = 5;
 const int SERVER_MODE = 1;
 const int CLIENT_MODE = SERVER_MODE + 1;
 const char ACK[] = "ACK";
@@ -34,12 +35,13 @@ const char init_sql[INIT_SQL_SIZE][MAX_SQL_LENGTH] = {
     "message varchar(128))",
 
     "CREATE TABLE blacklist (" \
-    "tid integer NOT NULL, " \
+    "tid integer PRIMARY KEY NOT NULL, " \
     "blackacc varchar(64))",
 
-    "CREATE TABLE fileintext (" \
-    "tid integer NOT NULL, " \
+    "CREATE TABLE filelist (" \
+    "tid integer PRIMARY KEY NOT NULL, " \
     "account varchar(64), " \
-    "filename varchar(64))"
+    "filename varchar(64), " \
+    "size integer)"
 };
 #endif
