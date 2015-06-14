@@ -21,8 +21,8 @@ void show_lobby_message(std::string username) {
 void show_file_list() {
     system("clear");
     std::cout << "**********File List**********\n"
-              << "[DL]Download <username> <filename>\n"
-              << "[UP]Upload <username> <filename>\n"
+              << "[DL]Download <filename> <username>\n"
+              << "[MDL]Download <filename>\n"
               << std::endl;
 }
 
@@ -40,16 +40,18 @@ void show_online_user(string_vector &sl) {
 
 void show_online_file(string_vector &sl) {
     system("clear");
-    std::cout << "**********Online User**********\n";
+    std::cout << "**********File List**********\n"
+              << "[DL]Download <username> <filename>\n"
+              << "[UP]Upload <username> <filename>\n";
     std::string fn;
     int i = 1;
     fn = sl.at(i); i++;
     for (; i < sl.size(); ) {
         int fno = atoi(sl.at(i).c_str());
         i++;
-        std::cout << "File " + fn + ": ";
+        std::cout << "File " + fn + ":";
         for (; fno > 0 ; fno--) {
-            std::cout << sl.at(i); i++;
+            std::cout << " " + sl.at(i); i++;
         }
         std::cout << std::endl;
         if (i < sl.size()) {

@@ -12,6 +12,7 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <pthread.h>
 #include <errno.h>
 #include <dirent.h>
 #include <sqlite3.h>
@@ -41,11 +42,15 @@ struct FILE_STRUCT {
     std::string filename;
     IP_INFO ip_info;
 };
+struct th_renew {
+    std::string username;
+    IP_INFO ip_info;
+};
 
 // Execute command
 bool exec(std::string command);
 std::string run_command_server(struct sockaddr_in addr, sqlite3* &db, std::string command, std::map<std::string, struct sockaddr_in> &online_user, std::map<std::string, std::set<std::string> > &online_file, int sockfd);
-std::string run_command_client(std::string command, char *username, char *tid, IP_INFO ip_info, std::map<std::string, IP_INFO> userlist, std::map<std::string, std::set<std::string> > filelist);
+std::string run_command_client(std::string command, char *username, char *tid, IP_INFO ip_info, std::map<std::string, IP_INFO> &userlist, std::map<std::string, std::set<std::string> > &filelist);
 
 // Socket
 IP_INFO get_ip_info(struct sockaddr_in addr);

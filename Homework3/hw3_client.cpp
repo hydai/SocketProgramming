@@ -5,12 +5,16 @@
 
 
 
-void send_file(FILE_STRUCT fs) {
+void *send_file(void *ffs) {
+    FILE_STRUCT fs = *(FILE_STRUCT *)ffs;
     logging("Send file");
     struct sockaddr_in addr, cliaddr;
     char buf[MAXLINE+1] = {0};
     FILE *fptr;
     fptr = fopen(("Upload/" + fs.filename).c_str(), "rb");
+    if (fptr == NULL) {
+        std::cerr << "File DNE\n";
+    }
     long long fileSize = 0;
     {
         struct stat fileStat;
@@ -27,7 +31,7 @@ void send_file(FILE_STRUCT fs) {
     setsockopt(connfd, SOL_SOCKET, SO_REUSEADDR, &tv, sizeof(tv));
 
     long long fileOffset = 0;
-    if (fs.total_no > 1) {
+    if (fs.total_no >= 1) {
         fileOffset = (fileSize * (fs.sub_no-1)) / fs.total_no;
         fileSize = (fileSize * fs.sub_no) / fs.total_no - fileOffset;
     }
@@ -52,9 +56,11 @@ void send_file(FILE_STRUCT fs) {
     close(connfd);
     close(listenfd);
     logging("Upload " + fs.filename + " finished.");
+    return NULL;
 }
 
-void get_file(FILE_STRUCT fs) {
+void *get_file(void* ffs) {
+    FILE_STRUCT fs = *(FILE_STRUCT *)ffs;
     logging("Download file: " + fs.filename);
     usleep(250000);
     char buf[MAXLINE+1] = {0};
@@ -78,14 +84,24 @@ void get_file(FILE_STRUCT fs) {
     fclose(fptr);
     close(connfd);
     logging("Download " + fs.filename + " finished.");
+    return NULL;
 }
 
-void auto_renew_filelist(std::string username, IP_INFO server_ip) {
+void *auto_renew_filelist(void *oao) {
+    th_renew qaq = *(th_renew*)oao;
+    std::string username = qaq.username;
+    IP_INFO server_ip = qaq.ip_info;
     DIR *dir;
     struct dirent *entry;
+    logging("Calling auto renew fs");
     while (true) {
-        std::this_thread::sleep_for(std::chrono::seconds(FILE_RENEW_TIME));
+        //std::this_thread::sleep_for(std::chrono::seconds(FILE_RENEW_TIME));
+        sleep(FILE_RENEW_TIME);
+        logging("Start scan file list");
         dir = opendir("Upload/");
+        if (dir == NULL) {
+            std::cerr << "DIR FAIL!!!" << std::endl;
+        }
         while ((entry = readdir(dir)) != NULL) {
             std::string filename(entry->d_name);
             logging("Get " + filename);
@@ -94,6 +110,7 @@ void auto_renew_filelist(std::string username, IP_INFO server_ip) {
         }
         closedir(dir);
     }
+    return NULL;
 }
 
 void sendDataByIpInfo(IP_INFO ip_info, std::string data) {
@@ -141,7 +158,7 @@ int client_echo(int sockfd, struct sockaddr_in addr) {
                 return 1;
             } else {
                 recv_string[n] = '\0';
-                logging("Server reply: " + std::string(recv_string));
+                // logging("Server reply: " + std::string(recv_string));
                 std::string command = run_command_client(recv_string, username, tid, ip_info, userlist, filelist);
                 if (command != "") {
                     send_data_to(sockfd, addr, CLIENT_MODE, command);
@@ -160,7 +177,7 @@ int client_echo(int sockfd, struct sockaddr_in addr) {
     return 0;
 }
 
-std::string run_command_client(std::string command, char *username, char *tid, IP_INFO ip_info, std::map<std::string, IP_INFO> userlist, std::map<std::string, std::set<std::string> > filelist) {
+std::string run_command_client(std::string command, char *username, char *tid, IP_INFO ip_info, std::map<std::string, IP_INFO> &userlist, std::map<std::string, std::set<std::string> > &filelist) {
     std::string t_username = "";
     std::string ret = "";
     string_vector cmds = string_split(command);
@@ -191,7 +208,12 @@ std::string run_command_client(std::string command, char *username, char *tid, I
     } else if (cmds.at(0) == "R_LI") {
         // Server reply login
         if (cmds.at(1) == "Accepted") {
-            std::thread renew_fl_thread(auto_renew_filelist, username, ip_info);
+            //std::thread renew_fl_thread(auto_renew_filelist, username, ip_info);
+            pthread_t renew_filelist_thread;
+            th_renew tmp_tr;
+            tmp_tr.username = username;
+            tmp_tr.ip_info = ip_info;
+            pthread_create(&renew_filelist_thread, NULL, auto_renew_filelist, (void *)&tmp_tr);
             show_lobby_message(cmds.at(2));
         } else {
             std::cout << "Login " + cmds.at(1) << std::endl;
@@ -219,7 +241,7 @@ std::string run_command_client(std::string command, char *username, char *tid, I
         ret = "SF";
     } else if (cmds.at(0) == "R_SF") {
         // Server reply show file list
-        show_online_file(cmds);
+        logging("Get file list");
         filelist.clear();
         std::string fn;
         int i = 1;
@@ -235,6 +257,7 @@ std::string run_command_client(std::string command, char *username, char *tid, I
                 i++;
             }
         }
+        show_online_file(cmds);
     } else if (cmds.at(0) == "U_SF") {
         // Server reply show file list, Update
         filelist.clear();
@@ -291,15 +314,18 @@ std::string run_command_client(std::string command, char *username, char *tid, I
         ret = ret + to_user;
         std::cout << "Say something: ";
         ret = ret + " " + read_line();
+        logging("Send message to " + to_user);
         if (userlist.find(to_user) != userlist.end()) {
+            logging("Send to " + userlist[to_user].ip + ":" + std::to_string(userlist[to_user].port));
             sendDataByIpInfo(userlist[to_user], ret);
         }
         ret = "";
     } else if (cmds.at(0) == "R_T") {
         // Server someone tell to you
+        logging("Recive R_T");
         show_tell_message(cmds);
     } else if (cmds.at(0) == "MDL") {
-        std::vector<std::thread> threads;
+        pthread_t threads[128];
         std::vector<FILE_STRUCT> fss;
         std::string filename = cmds.at(1);
         int total_no = 1;
@@ -329,14 +355,15 @@ std::string run_command_client(std::string command, char *username, char *tid, I
             fs.total_no = total_no;
             fs.ip_info.ip = ip_info.ip;
             fs.ip_info.port = 37899;
-            threads.push_back(std::thread(get_file, fs));
+            fss.push_back(fs);
+            pthread_create(&threads[i-1], NULL, get_file, (void*)&fss[i-1]);
         }
         ret = "";
         FILE *fptr = fopen(("Download/" + filename).c_str(), "wb");
         char buf[MAXLINE+1];
         for (int i = 1; i <= total_no; i++) {
             std::string tmp_filename = "Download/" + filename + "." + std::to_string(i);
-            threads.at(i-1).join();
+            pthread_join(threads[i-1], NULL);
             FILE *sub_fptr = fopen(tmp_filename.c_str(), "rb");
             while (!feof(sub_fptr)) {
                 int n = fread(buf, sizeof(char), MAXLINE, sub_fptr);
@@ -355,7 +382,8 @@ std::string run_command_client(std::string command, char *username, char *tid, I
             fs.ip_info.ip = userlist[cmds.at(2)].ip;
             fs.ip_info.port = 37899;
             fs.filename = cmds.at(1);
-            std::thread dl_thread(get_file, fs);
+            pthread_t dl_thread;
+            pthread_create(&dl_thread, NULL, get_file, (void *)&fs);
         }
         ret = "";
     } else if (cmds.at(0) == "S_D") {
@@ -372,7 +400,8 @@ std::string run_command_client(std::string command, char *username, char *tid, I
                 fs.total_no = atoi(cmds.at(4).c_str());
             }
             fs.filename = cmds.at(2);
-            std::thread s_d_thread(send_file, fs);
+            pthread_t sd_thread;
+            pthread_create(&sd_thread, NULL, send_file, (void *)&fs);
         }
     } else if (cmds.at(0) == "B") {
         show_lobby_message(std::string(username));
